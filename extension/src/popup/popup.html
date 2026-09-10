@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algo Notion Sync</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="header">
+    <div class="logo-area">
+      <span class="logo-icon">🚀</span>
+      <h1>Algo Notion Sync</h1>
+    </div>
+    <span class="badge mv3-badge">MV3</span>
+  </header>
+
+  <main class="container">
+    <!-- Session Status Section -->
+    <section class="card">
+      <div class="card-title">사이트 세션 상태</div>
+      <div class="session-list">
+        <div class="session-item" id="swea-status">
+          <span class="site-name">SWEA</span>
+          <span class="status-pill checking">확인 중...</span>
+        </div>
+        <div class="session-item" id="jungol-status">
+          <span class="site-name">정올 (JUNGOL)</span>
+          <span class="status-pill checking">확인 중...</span>
+        </div>
+      </div>
+      <div class="hint-text">
+        🔒 비밀번호를 저장하지 않으며 기존 브라우저 로그인 세션을 사용합니다.
+      </div>
+    </section>
+
+    <!-- Notion Connect Section -->
+    <section class="card">
+      <div class="card-title">Notion 연동</div>
+      
+      <div id="notion-unconnected" class="notion-block">
+        <p class="desc">Notion OAuth로 안전하게 워크스페이스를 연결하세요.</p>
+        <button id="btn-connect-notion" class="btn btn-primary">Notion 계정 연결</button>
+        <div class="divider"><span>또는 토큰 직접 입력</span></div>
+        <div class="token-input-row">
+          <input type="password" id="input-manual-token" placeholder="Internal Integration Secret (secret_...)" />
+          <button id="btn-save-token" class="btn btn-secondary">저장</button>
+        </div>
+      </div>
+
+      <div id="notion-connected" class="notion-block hidden">
+        <div class="connected-row">
+          <span class="status-pill connected">✓ Notion 연결됨</span>
+          <button id="btn-disconnect-notion" class="btn-text">연결 해제</button>
+        </div>
+
+        <div class="form-group">
+          <label for="select-database">저장할 데이터베이스:</label>
+          <div class="select-row">
+            <select id="select-database">
+              <option value="">데이터베이스 선택...</option>
+            </select>
+            <button id="btn-refresh-db" class="btn-icon" title="새로고침">🔄</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sync Controls & Status -->
+    <section class="card">
+      <div class="card-title">동기화 설정</div>
+      <div class="toggle-row">
+        <span>정답 제출 시 자동 저장</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-auto-sync" checked>
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <div class="actions-row">
+        <button id="btn-sync-current" class="btn btn-outline">현재 페이지 문제 수동 저장</button>
+      </div>
+
+      <div class="last-sync-info" id="last-sync-info">
+        <span class="info-label">최근 동기화:</span>
+        <span class="info-val" id="last-sync-text">동기화 이력 없음</span>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <a href="https://github.com" target="_blank" class="footer-link">도움말 / README</a>
+  </footer>
+
+  <script type="module" src="popup.ts"></script>
+</body>
+</html>
