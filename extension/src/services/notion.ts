@@ -60,10 +60,10 @@ export class NotionService {
 
   /**
    * Adds or updates a problem submission in the specified database
-   * Checks for duplicates and updates existing page instead of creating multiples!
+   * Intelligently maps status to existing Korean options (성공, 실패, 부분 성공)
    */
   public async syncSubmission(databaseId: string, submission: SubmissionMeta): Promise<any> {
-    // 1. Fetch target DB schema to see exact columns
+    // 1. Fetch target DB schema to see exact columns and select options
     const dbInfo = await this.getDatabase(databaseId);
     const dbSchema: Record<string, any> = dbInfo.properties || {};
 
@@ -123,14 +123,30 @@ export class NotionService {
       }
     }
 
-    // 6. Status / 상태
-    const statusProp = findExisting(['상태', '결과', 'status', 'Result'], 'select') ||
-                       findExisting(['상태', '결과', 'status', 'Result'], 'status');
+    // 6. Status / 결과 (Smart mapping to existing Korean options like 성공, 실패, 부분 성공)
+    const statusProp = findExisting(['결과', '상태', 'status', 'Result'], 'select') ||
+                       findExisting(['결과', '상태', 'status', 'Result'], 'status');
     if (statusProp) {
-      if (dbSchema[statusProp].type === 'status') {
-        properties[statusProp] = { status: { name: submission.status } };
-      } else if (dbSchema[statusProp].type === 'select') {
-        properties[statusProp] = { select: { name: submission.status } };
+      const propConfig = dbSchema[statusProp];
+      const existingOptions: string[] = (propConfig.select?.options || propConfig.status?.options || []).map((o: any) => o.name);
+
+      let targetStatusName: string = submission.status;
+
+      // Check if user's DB has '성공', '실패' options
+      const hasKoreanSuccess = existingOptions.includes('성공');
+      const hasKoreanFail = existingOptions.includes('실패');
+      const hasKoreanPartial = existingOptions.includes('부분 성공');
+
+      if (submission.status === 'Accepted') {
+        targetStatusName = hasKoreanSuccess ? '성공' : (existingOptions.includes('Accepted') ? 'Accepted' : '성공');
+      } else if (submission.status === 'Wrong Answer' || submission.status === 'Time Limit Exceeded' || submission.status === 'Memory Limit Exceeded' || submission.status === 'Runtime Error') {
+        targetStatusName = hasKoreanFail ? '실패' : submission.status;
+      }
+
+      if (propConfig.type === 'status') {
+        properties[statusProp] = { status: { name: targetStatusName } };
+      } else if (propConfig.type === 'select') {
+        properties[statusProp] = { select: { name: targetStatusName } };
       }
     }
 
@@ -203,7 +219,6 @@ export class NotionService {
     const existing = await this.findExistingPage(databaseId, submission.site, submission.problemId);
 
     if (existing) {
-      // If already exists, update properties only (prevent creating 2nd/3rd duplicates)
       return await this.request(`/pages/${existing.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -211,7 +226,6 @@ export class NotionService {
         })
       });
     } else {
-      // Create new page
       return await this.request('/pages', {
         method: 'POST',
         body: JSON.stringify({

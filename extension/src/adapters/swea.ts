@@ -9,8 +9,6 @@ export class SWEAAdapter implements SiteAdapter {
   }
 
   public checkLogin(doc: Document): SiteLoginStatus {
-    // On SWEA, logged-in users see logout buttons or user profile links (e.g. .btn_logout, /main/user/logout.do)
-    // Logged out users see login link (.btn_login, /main/login/login.do)
     const logoutBtn = doc.querySelector('a[href*="logout.do"], .btn_logout, .user_name, .my_info');
     const loginBtn = doc.querySelector('a[href*="login.do"], .btn_login');
     const usernameEl = doc.querySelector('.user_name, .user_id, .nick_name');
@@ -24,15 +22,12 @@ export class SWEAAdapter implements SiteAdapter {
   }
 
   public extractProblem(doc: Document, url: string): ProblemMeta | null {
-    // Problem detail page: typically /main/code/problem/problemDetail.do?contestProbId=XXXXX
     const titleEl = doc.querySelector('.problem_title, .title_box h3, .tit_box .tit, .code_title');
     const rawTitle = titleEl?.textContent?.trim();
 
-    // Problem ID can be parsed from URL params or page text
     const urlObj = new URL(url, 'https://swexpertacademy.com');
     const probIdFromUrl = urlObj.searchParams.get('contestProbId') || '';
 
-    // SWEA Problem Titles often look like "1204. [S/W 문제해결 기본] 1일차 - 최빈수 구하기"
     let problemId = probIdFromUrl;
     let title = rawTitle || 'SWEA Problem';
 
@@ -44,7 +39,6 @@ export class SWEAAdapter implements SiteAdapter {
       }
     }
 
-    // Difficulty level: D1 ~ D8 or box badge
     let difficulty: string | undefined;
     const badgeEl = doc.querySelector('.badge_d, .badge_difficulty, .difficulty, span[class*="badge"]');
     if (badgeEl?.textContent) {
@@ -54,7 +48,6 @@ export class SWEAAdapter implements SiteAdapter {
       if (diffMatch) difficulty = diffMatch[1];
     }
 
-    // Algorithm tags
     const tags: string[] = [];
     const tagElements = doc.querySelectorAll('.tag_list li, .keyword_box a, .tags span');
     tagElements.forEach(el => {
@@ -76,26 +69,38 @@ export class SWEAAdapter implements SiteAdapter {
     const problem = this.extractProblem(doc, url);
     if (!problem) return null;
 
-    // Result/status in SWEA: Pass, Fail, etc.
-    let status: SubmissionMeta['status'] = 'Submitted';
-    const statusEl = doc.querySelector('.result_msg, .pass_box, .fail_box, .solve_status, .status_txt');
-    const textContent = (statusEl?.textContent || doc.body.textContent || '').toLowerCase();
+    // STRICT Result Status Detection:
+    // Only query dedicated result elements (NOT the entire doc.body to avoid false positives like "password")
+    const statusEl = doc.querySelector(
+      '.result_msg, .pass_box, .fail_box, .solve_status, .status_txt, ' +
+      '#resultDiv, .result_area, .popup_result, td.result, span.solve_ok, span.solve_fail'
+    );
 
-    if (textContent.includes('pass') || textContent.includes('정답') || textContent.includes('accepted')) {
-      status = 'Accepted';
-    } else if (textContent.includes('fail') || textContent.includes('오답') || textContent.includes('wrong')) {
-      status = 'Wrong Answer';
-    } else if (textContent.includes('시간초과') || textContent.includes('time limit')) {
-      status = 'Time Limit Exceeded';
-    } else if (textContent.includes('메모리초과') || textContent.includes('memory limit')) {
-      status = 'Memory Limit Exceeded';
-    } else if (textContent.includes('런타임에러') || textContent.includes('runtime error')) {
-      status = 'Runtime Error';
+    let status: SubmissionMeta['status'] = 'Submitted';
+
+    if (statusEl) {
+      const text = (statusEl.textContent || '').trim().toLowerCase();
+      if (text.includes('pass') || text.includes('정답') || text.includes('accepted') || text.includes('맞았습니다')) {
+        status = 'Accepted';
+      } else if (text.includes('fail') || text.includes('오답') || text.includes('틀렸습니다')) {
+        status = 'Wrong Answer';
+      } else if (text.includes('시간초과') || text.includes('time limit')) {
+        status = 'Time Limit Exceeded';
+      } else if (text.includes('메모리초과') || text.includes('memory limit')) {
+        status = 'Memory Limit Exceeded';
+      } else if (text.includes('런타임') || text.includes('runtime')) {
+        status = 'Runtime Error';
+      } else if (text.includes('컴파일') || text.includes('compile')) {
+        status = 'Compilation Error';
+      }
+    } else {
+      // If there is no result element on the page at all, this is just a problem viewing page (Not submitted yet)
+      status = 'Submitted';
     }
 
     // Language
     let language: string | undefined;
-    const langEl = doc.querySelector('.lang_select, .code_lang, .select_lang');
+    const langEl = doc.querySelector('.lang_select, .code_lang, .select_lang, select#selectLang');
     if (langEl) {
       language = (langEl as HTMLSelectElement).value || langEl.textContent?.trim();
     }

@@ -15,7 +15,7 @@ function initContentScript() {
     }
   };
 
-  // 1. Message listener
+  // 1. Message listener (for manual sync button in popup)
   try {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (!isContextValid()) return;
@@ -42,7 +42,7 @@ function initContentScript() {
     // Ignore context error
   }
 
-  // 2. Auto-sync trigger with debouncing
+  // 2. Auto-sync: STRICTLY trigger ONLY when 'Accepted' status is confirmed!
   observeSubmission(adapter, currentUrl, isContextValid);
 }
 
@@ -53,6 +53,7 @@ function observeSubmission(adapter: any, currentUrl: string, isContextValid: () 
     if (!isContextValid() || autoSyncDispatched) return;
     try {
       const submission = adapter.extractSubmission(document, currentUrl);
+      // ONLY trigger automatic sync if status is strictly 'Accepted'
       if (submission && submission.status === 'Accepted') {
         autoSyncDispatched = true; // prevent repeated firing on same page view
         chrome.runtime.sendMessage({
@@ -65,8 +66,22 @@ function observeSubmission(adapter: any, currentUrl: string, isContextValid: () 
     }
   };
 
-  // Run once after initial DOM render
-  setTimeout(checkAndAutoSync, 2000);
+  // Check 2.5s after load (giving time for 채점 result to render)
+  setTimeout(checkAndAutoSync, 2500);
+
+  // Also observe for dynamic result popups/DOM updates when user clicks "제출"
+  try {
+    const observer = new MutationObserver(() => {
+      checkAndAutoSync();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  } catch {
+    // Ignored
+  }
 }
 
 // Run content script
