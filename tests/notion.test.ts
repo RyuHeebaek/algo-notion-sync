@@ -67,7 +67,7 @@ describe('NotionService Unit Tests', () => {
               '문제명': { type: 'title' },
               '사이트': { type: 'select' },
               '문제번호': { type: 'rich_text' },
-              '상태': { type: 'select' },
+              '상태': { type: 'select', select: { options: [{ name: '성공' }, { name: '실패' }] } },
               '난이도': { type: 'select' },
               '알고리즘': { type: 'multi_select' },
               '제출일': { type: 'date' },
@@ -96,13 +96,13 @@ describe('NotionService Unit Tests', () => {
     const props = createBodySent.properties;
     expect(props['문제명'].title[0].text.content).toBe('SWEA. 1204. 최빈수 구하기');
     expect(props['사이트'].select.name).toBe('SWEA');
-    expect(props['상태'].select.name).toBe('Accepted');
+    expect(props['상태'].select.name).toBe('성공'); // smart Korean mapping!
     expect(props['난이도'].select.name).toBe('D2');
     expect(props['알고리즘'].multi_select).toHaveLength(2);
 
-    expect(createBodySent.children).toHaveLength(1);
-    expect(createBodySent.children[0].type).toBe('code');
-    expect(createBodySent.children[0].code.language).toBe('java');
+    expect(createBodySent.children).toHaveLength(3); // bookmark, heading_3, code block
+    expect(createBodySent.children[2].type).toBe('code');
+    expect(createBodySent.children[2].code.language).toBe('java');
 
     fetchSpy.mockRestore();
   });

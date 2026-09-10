@@ -69,8 +69,6 @@ export class SWEAAdapter implements SiteAdapter {
     const problem = this.extractProblem(doc, url);
     if (!problem) return null;
 
-    // STRICT Result Status Detection:
-    // Only query dedicated result elements (NOT the entire doc.body to avoid false positives like "password")
     const statusEl = doc.querySelector(
       '.result_msg, .pass_box, .fail_box, .solve_status, .status_txt, ' +
       '#resultDiv, .result_area, .popup_result, td.result, span.solve_ok, span.solve_fail'
@@ -94,22 +92,39 @@ export class SWEAAdapter implements SiteAdapter {
         status = 'Compilation Error';
       }
     } else {
-      // If there is no result element on the page at all, this is just a problem viewing page (Not submitted yet)
       status = 'Submitted';
     }
 
     // Language
     let language: string | undefined;
-    const langEl = doc.querySelector('.lang_select, .code_lang, .select_lang, select#selectLang');
+    const langEl = doc.querySelector('.lang_select, .code_lang, .select_lang, select#selectLang, select[name*="lang"]');
     if (langEl) {
       language = (langEl as HTMLSelectElement).value || langEl.textContent?.trim();
     }
 
-    // Code: extracted from textarea or ACE editor
+    // Source Code: Thorough extraction across ACE editor, textarea, code blocks, frames
     let code: string | undefined;
-    const codeArea = doc.querySelector('textarea#userCode, textarea[name="code"], .ace_content, pre.code');
-    if (codeArea) {
-      code = (codeArea as HTMLTextAreaElement).value || codeArea.textContent || undefined;
+
+    // 1. Textarea options
+    const codeArea = doc.querySelector('textarea#userCode, textarea[name="code"], textarea#code, textarea#source, textarea.code') as HTMLTextAreaElement;
+    if (codeArea && codeArea.value && codeArea.value.trim().length > 0) {
+      code = codeArea.value;
+    }
+
+    // 2. Ace Editor lines
+    if (!code) {
+      const aceLines = doc.querySelectorAll('.ace_line');
+      if (aceLines && aceLines.length > 0) {
+        code = Array.from(aceLines).map(l => l.textContent || '').join('\n');
+      }
+    }
+
+    // 3. Pre / Code tags
+    if (!code) {
+      const preEl = doc.querySelector('pre.code, pre#userCode, .ace_content, div.code_box pre');
+      if (preEl && preEl.textContent && preEl.textContent.trim().length > 0) {
+        code = preEl.textContent;
+      }
     }
 
     return {
@@ -117,7 +132,7 @@ export class SWEAAdapter implements SiteAdapter {
       status,
       language: language || 'Java',
       submittedAt: new Date().toISOString(),
-      code: code?.trim()
+      code: code ? code.trim() : undefined
     };
   }
 }

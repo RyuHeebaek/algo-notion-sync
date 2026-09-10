@@ -60,16 +60,14 @@ export class NotionService {
 
   /**
    * Adds or updates a problem submission in the specified database
-   * Intelligently maps status to existing Korean options (성공, 실패, 부분 성공)
    */
   public async syncSubmission(databaseId: string, submission: SubmissionMeta): Promise<any> {
-    // 1. Fetch target DB schema to see exact columns and select options
     const dbInfo = await this.getDatabase(databaseId);
     const dbSchema: Record<string, any> = dbInfo.properties || {};
 
     const properties: Record<string, any> = {};
 
-    // 2. Find Title property (every Notion DB has exactly one title property)
+    // 1. Title property
     const titleKey = Object.keys(dbSchema).find(k => dbSchema[k].type === 'title');
     if (titleKey) {
       properties[titleKey] = {
@@ -83,7 +81,6 @@ export class NotionService {
       };
     }
 
-    // Helper: only match existing property by case-insensitive name and matching type
     const findExisting = (candidates: string[], type?: string) => {
       return Object.keys(dbSchema).find(k => {
         const nameMatch = candidates.some(c => c.toLowerCase() === k.toLowerCase());
@@ -92,7 +89,7 @@ export class NotionService {
       });
     };
 
-    // 3. Date / 날짜 (Crucial for Calendar & Heatmap views!)
+    // 2. Date / 날짜
     const dateProp = findExisting(['날짜', '제출일', '제출일자', 'date', 'Date', '일자'], 'date') ||
                      Object.keys(dbSchema).find(k => dbSchema[k].type === 'date');
     if (dateProp) {
@@ -102,7 +99,7 @@ export class NotionService {
       };
     }
 
-    // 4. Site / 사이트
+    // 3. Site / 사이트
     const siteProp = findExisting(['사이트', '플랫폼', 'site', 'Platform']);
     if (siteProp) {
       if (dbSchema[siteProp].type === 'select') {
@@ -112,7 +109,7 @@ export class NotionService {
       }
     }
 
-    // 5. Problem Number / 문제번호
+    // 4. Problem Number / 문제번호
     const numProp = findExisting(['문제번호', '번호', 'number', 'ProblemId']);
     if (numProp) {
       if (dbSchema[numProp].type === 'number') {
@@ -123,7 +120,7 @@ export class NotionService {
       }
     }
 
-    // 6. Status / 결과 (Smart mapping to existing Korean options like 성공, 실패, 부분 성공)
+    // 5. Status / 결과
     const statusProp = findExisting(['결과', '상태', 'status', 'Result'], 'select') ||
                        findExisting(['결과', '상태', 'status', 'Result'], 'status');
     if (statusProp) {
@@ -131,11 +128,8 @@ export class NotionService {
       const existingOptions: string[] = (propConfig.select?.options || propConfig.status?.options || []).map((o: any) => o.name);
 
       let targetStatusName: string = submission.status;
-
-      // Check if user's DB has '성공', '실패' options
       const hasKoreanSuccess = existingOptions.includes('성공');
       const hasKoreanFail = existingOptions.includes('실패');
-      const hasKoreanPartial = existingOptions.includes('부분 성공');
 
       if (submission.status === 'Accepted') {
         targetStatusName = hasKoreanSuccess ? '성공' : (existingOptions.includes('Accepted') ? 'Accepted' : '성공');
@@ -150,13 +144,13 @@ export class NotionService {
       }
     }
 
-    // 7. Problem URL / 링크
+    // 6. Problem URL / 링크
     const urlProp = findExisting(['문제 링크', '문제링크', '링크', 'url', 'Link', 'URL'], 'url');
     if (urlProp) {
       properties[urlProp] = { url: submission.problemUrl };
     }
 
-    // 8. Difficulty / 난이도
+    // 7. Difficulty / 난이도
     if (submission.difficulty) {
       const diffProp = findExisting(['난이도', 'difficulty', 'Tier', '레벨']);
       if (diffProp) {
@@ -168,7 +162,7 @@ export class NotionService {
       }
     }
 
-    // 9. Language / 언어
+    // 8. Language / 언어
     if (submission.language) {
       const langProp = findExisting(['언어', 'language', 'Language']);
       if (langProp) {
@@ -180,7 +174,7 @@ export class NotionService {
       }
     }
 
-    // 10. Tags / 알고리즘
+    // 9. Tags / 알고리즘
     if (submission.tags && submission.tags.length > 0) {
       const tagProp = findExisting(['알고리즘', '태그', 'tags', 'Tags', '유형', '분류'], 'multi_select');
       if (tagProp) {
@@ -190,8 +184,19 @@ export class NotionService {
       }
     }
 
-    // 11. Code Block in page children
+    // 10. Build Children blocks (Heading, Callout with problem link, and Code block)
     const children: any[] = [];
+
+    // Problem Link block
+    children.push({
+      object: 'block',
+      type: 'bookmark',
+      bookmark: {
+        url: submission.problemUrl
+      }
+    });
+
+    // Code Block
     if (submission.code) {
       let notionLang = 'plain text';
       const langLower = (submission.language || '').toLowerCase();
@@ -200,6 +205,14 @@ export class NotionService {
       else if (langLower.includes('c++') || langLower.includes('cpp')) notionLang = 'c++';
       else if (langLower.includes('c')) notionLang = 'c';
       else if (langLower.includes('js') || langLower.includes('javascript')) notionLang = 'javascript';
+
+      children.push({
+        object: 'block',
+        type: 'heading_3',
+        heading_3: {
+          rich_text: [{ type: 'text', text: { content: '💻 제출 코드' } }]
+        }
+      });
 
       const chunks = this.chunkString(submission.code, 2000);
       children.push({
@@ -215,17 +228,34 @@ export class NotionService {
       });
     }
 
-    // 12. Check if problem already exists in database (De-duplication)
+    // 11. Check if problem already exists in database (De-duplication)
     const existing = await this.findExistingPage(databaseId, submission.site, submission.problemId);
 
     if (existing) {
-      return await this.request(`/pages/${existing.id}`, {
+      // 1. Update properties
+      await this.request(`/pages/${existing.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
           properties
         })
       });
+
+      // 2. Append new code block if code is present
+      if (children.length > 0) {
+        try {
+          await this.request(`/blocks/${existing.id}/children`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              children
+            })
+          });
+        } catch (e) {
+          console.warn('Could not append code blocks to existing page:', e);
+        }
+      }
+      return existing;
     } else {
+      // Create new page with code block inside
       return await this.request('/pages', {
         method: 'POST',
         body: JSON.stringify({
