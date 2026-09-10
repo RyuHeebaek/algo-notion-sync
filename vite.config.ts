@@ -3,6 +3,7 @@ import { resolve } from 'path';
 import fs from 'fs';
 
 export default defineConfig({
+  base: './', // Use relative paths for Chrome extension assets
   build: {
     outDir: 'dist',
     emptyOutDir: true,

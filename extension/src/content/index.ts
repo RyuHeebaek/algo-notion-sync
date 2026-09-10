@@ -7,56 +7,66 @@ function initContentScript() {
 
   if (!adapter) return;
 
-  // 1. Check login status and report to runtime if requested
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message.type === 'CHECK_LOGIN') {
-      const loginStatus = adapter.checkLogin(document);
-      sendResponse(loginStatus);
-      return true;
-    }
-
-    if (message.type === 'EXTRACT_PROBLEM') {
-      const problem = adapter.extractProblem(document, currentUrl);
-      sendResponse(problem);
-      return true;
-    }
-
-    if (message.type === 'EXTRACT_SUBMISSION') {
-      const submission = adapter.extractSubmission(document, currentUrl);
-      sendResponse(submission);
-      return true;
-    }
-  });
-
-  // 2. Detect if user just submitted and received an Accepted result
-  observeSubmission(adapter, currentUrl);
-}
-
-function observeSubmission(adapter: any, currentUrl: string) {
-  // Check periodically or on mutation if this is a submission result page
-  const checkAndAutoSync = () => {
-    const submission = adapter.extractSubmission(document, currentUrl);
-    if (submission && submission.status === 'Accepted') {
-      // Send message to background to trigger auto-sync if enabled
-      chrome.runtime.sendMessage({
-        type: 'AUTO_SYNC_SUBMISSION',
-        data: submission
-      });
+  const isContextValid = () => {
+    try {
+      return !!(chrome.runtime && chrome.runtime.id);
+    } catch {
+      return false;
     }
   };
 
-  // Initial check after load
-  setTimeout(checkAndAutoSync, 1500);
+  // 1. Message listener
+  try {
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (!isContextValid()) return;
 
-  // Observer for dynamic SPA / AJAX updates on result tables
-  const observer = new MutationObserver(() => {
-    checkAndAutoSync();
-  });
+      if (message.type === 'CHECK_LOGIN') {
+        const loginStatus = adapter.checkLogin(document);
+        sendResponse(loginStatus);
+        return true;
+      }
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
+      if (message.type === 'EXTRACT_PROBLEM') {
+        const problem = adapter.extractProblem(document, currentUrl);
+        sendResponse(problem);
+        return true;
+      }
+
+      if (message.type === 'EXTRACT_SUBMISSION') {
+        const submission = adapter.extractSubmission(document, currentUrl);
+        sendResponse(submission);
+        return true;
+      }
+    });
+  } catch {
+    // Ignore context error
+  }
+
+  // 2. Auto-sync trigger with debouncing
+  observeSubmission(adapter, currentUrl, isContextValid);
+}
+
+let autoSyncDispatched = false;
+
+function observeSubmission(adapter: any, currentUrl: string, isContextValid: () => boolean) {
+  const checkAndAutoSync = () => {
+    if (!isContextValid() || autoSyncDispatched) return;
+    try {
+      const submission = adapter.extractSubmission(document, currentUrl);
+      if (submission && submission.status === 'Accepted') {
+        autoSyncDispatched = true; // prevent repeated firing on same page view
+        chrome.runtime.sendMessage({
+          type: 'AUTO_SYNC_SUBMISSION',
+          data: submission
+        }).catch(() => {});
+      }
+    } catch {
+      // Ignored
+    }
+  };
+
+  // Run once after initial DOM render
+  setTimeout(checkAndAutoSync, 2000);
 }
 
 // Run content script

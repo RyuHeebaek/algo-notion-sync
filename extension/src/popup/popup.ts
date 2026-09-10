@@ -84,50 +84,115 @@ async function loadDatabases(token: string, selectedId?: string) {
 }
 
 async function checkSiteSessions() {
-  // Check SWEA session via cookie check or active tab query
-  chrome.cookies?.get({ url: 'https://swexpertacademy.com', name: 'JSESSIONID' }, cookie => {
-    if (sweaStatusEl) {
-      if (cookie) {
-        sweaStatusEl.textContent = '로그인됨 (세션 감지)';
-        sweaStatusEl.className = 'status-pill logged-in';
-      } else {
-        sweaStatusEl.textContent = '미로그인 / 세션 없음';
-        sweaStatusEl.className = 'status-pill logged-out';
-      }
-    }
-  });
+  // 1. First check if any open tab is logged in (Content script method - most reliable)
+  const tabs = await chrome.tabs.query({});
+  let sweaFoundInTab = false;
+  let jungolFoundInTab = false;
 
-  // Check Jungol session via cookie check
-  chrome.cookies?.get({ url: 'http://www.jungol.co.kr', name: 'PHPSESSID' }, cookie => {
-    if (jungolStatusEl) {
-      if (cookie) {
-        jungolStatusEl.textContent = '로그인됨 (세션 감지)';
-        jungolStatusEl.className = 'status-pill logged-in';
-      } else {
-        jungolStatusEl.textContent = '미로그인 / 세션 없음';
-        jungolStatusEl.className = 'status-pill logged-out';
+  for (const tab of tabs) {
+    if (!tab.id || !tab.url) continue;
+
+    if (tab.url.includes('swexpertacademy.com') && !sweaFoundInTab) {
+      try {
+        const res = await chrome.tabs.sendMessage(tab.id, { type: 'CHECK_LOGIN' });
+        if (res && res.isLoggedIn) {
+          sweaFoundInTab = true;
+          if (sweaStatusEl) {
+            sweaStatusEl.textContent = res.username ? `로그인됨 (${res.username})` : '로그인됨';
+            sweaStatusEl.className = 'status-pill logged-in';
+          }
+        }
+      } catch {
+        // Tab may not have content script loaded yet
       }
     }
-  });
+
+    if (tab.url.includes('jungol.co.kr') && !jungolFoundInTab) {
+      try {
+        const res = await chrome.tabs.sendMessage(tab.id, { type: 'CHECK_LOGIN' });
+        if (res && res.isLoggedIn) {
+          jungolFoundInTab = true;
+          if (jungolStatusEl) {
+            jungolStatusEl.textContent = res.username ? `로그인됨 (${res.username})` : '로그인됨';
+            jungolStatusEl.className = 'status-pill logged-in';
+          }
+        }
+      } catch {
+        // Tab may not have content script loaded yet
+      }
+    }
+  }
+
+  // 2. Cookie fallback across domains & subdomains
+  if (!sweaFoundInTab) {
+    chrome.cookies?.getAll({ domain: 'swexpertacademy.com' }, cookies => {
+      if (sweaStatusEl) {
+        const hasSession = cookies && cookies.length > 0 && cookies.some(c => 
+          c.name.toUpperCase().includes('SESSION') || c.name.toUpperCase().includes('LOGIN') || c.name.toUpperCase().includes('SSO')
+        );
+        if (hasSession || (cookies && cookies.length >= 2)) {
+          sweaStatusEl.textContent = '로그인됨 (세션 감지)';
+          sweaStatusEl.className = 'status-pill logged-in';
+        } else {
+          sweaStatusEl.textContent = '미로그인 / 세션 없음';
+          sweaStatusEl.className = 'status-pill logged-out';
+        }
+      }
+    });
+  }
+
+  if (!jungolFoundInTab) {
+    chrome.cookies?.getAll({ domain: 'jungol.co.kr' }, cookies => {
+      if (jungolStatusEl) {
+        const hasSession = cookies && cookies.length > 0 && cookies.some(c => 
+          c.name.toUpperCase().includes('SESS') || c.name.toUpperCase().includes('LOGIN') || c.name.toUpperCase().includes('USER')
+        );
+        if (hasSession || (cookies && cookies.length >= 2)) {
+          jungolStatusEl.textContent = '로그인됨 (세션 감지)';
+          jungolStatusEl.className = 'status-pill logged-in';
+        } else {
+          jungolStatusEl.textContent = '미로그인 / 세션 없음';
+          jungolStatusEl.className = 'status-pill logged-out';
+        }
+      }
+    });
+  }
 }
 
 function setupEventListeners() {
   // Manual token save
   btnSaveToken?.addEventListener('click', () => {
     const token = inputManualToken.value.trim();
-    if (!token) return;
+    if (!token) {
+      alert('토큰을 입력해주세요.');
+      return;
+    }
 
+    btnSaveToken.textContent = '저장 중...';
     chrome.runtime.sendMessage(
       { type: 'SAVE_SETTINGS', data: { notionToken: token } },
-      () => loadSettings()
+      () => {
+        btnSaveToken.textContent = '저장';
+        inputManualToken.value = '';
+        loadSettings();
+      }
     );
   });
 
   // Connect Notion OAuth button
   btnConnectNotion?.addEventListener('click', () => {
-    // Opens companion server OAuth endpoint or custom auth window
-    const oauthUrl = 'http://localhost:3000/api/auth/notion';
-    chrome.tabs.create({ url: oauthUrl });
+    const instructions = 
+      '【Notion 토큰 연동 안내】\n\n' +
+      '로컬 OAuth 서버를 띄우지 않고 가장 간편하게 연동하는 방법:\n\n' +
+      '1. https://www.notion.so/my-integrations 에 접속합니다.\n' +
+      '2. [+ 새 API 통합 만들기]를 클릭하고 이름을 입력합니다.\n' +
+      '3. 생성된 [프라이빗 API 통합 시크릿 (secret_...)]을 복사합니다.\n' +
+      '4. 노션에서 문제들을 저장할 데이터베이스 페이지 우측 상단 [···] -> [연결(Connect to)]에서 방금 만든 통합을 추가합니다.\n' +
+      '5. 팝업 창 하단의 "토큰 직접 입력" 칸에 붙여넣고 [저장]을 누르면 바로 연결됩니다!';
+    
+    if (confirm(instructions + '\n\nNotion 통합 페이지로 이동하시겠습니까?')) {
+      chrome.tabs.create({ url: 'https://www.notion.so/my-integrations' });
+    }
   });
 
   // Disconnect Notion button
@@ -179,7 +244,7 @@ function setupEventListeners() {
 
     chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_SUBMISSION' }, (submission) => {
       if (chrome.runtime.lastError || !submission) {
-        alert('현재 페이지에서 문제나 제출 정보를 추출할 수 없습니다. SWEA 또는 정올 문제 페이지인지 확인해주세요.');
+        alert('현재 페이지에서 문제나 제출 정보를 추출할 수 없습니다.\nSWEA 또는 정올 문제 상세 페이지를 열고 시도해주세요.');
         btnSyncCurrent.textContent = '현재 페이지 문제 수동 저장';
         (btnSyncCurrent as HTMLButtonElement).disabled = false;
         return;

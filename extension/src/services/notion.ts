@@ -52,78 +52,131 @@ export class NotionService {
   }
 
   /**
+   * Retrieves the schema/properties of the target database
+   */
+  public async getDatabase(databaseId: string): Promise<any> {
+    return await this.request(`/databases/${databaseId}`, { method: 'GET' });
+  }
+
+  /**
    * Adds or updates a problem submission in the specified database
+   * Checks for duplicates and updates existing page instead of creating multiples!
    */
   public async syncSubmission(databaseId: string, submission: SubmissionMeta): Promise<any> {
-    // 1. Check if the problem already exists in the database
-    const existing = await this.findExistingPage(databaseId, submission.site, submission.problemId);
+    // 1. Fetch target DB schema to see exact columns
+    const dbInfo = await this.getDatabase(databaseId);
+    const dbSchema: Record<string, any> = dbInfo.properties || {};
 
-    // Build Notion properties matching standard schema
-    const properties: Record<string, any> = {
-      '문제명': {
+    const properties: Record<string, any> = {};
+
+    // 2. Find Title property (every Notion DB has exactly one title property)
+    const titleKey = Object.keys(dbSchema).find(k => dbSchema[k].type === 'title');
+    if (titleKey) {
+      properties[titleKey] = {
         title: [
           {
             text: {
-              content: `${submission.problemId}. ${submission.title}`
+              content: `${submission.site}. ${submission.problemId}. ${submission.title}`
             }
           }
         ]
-      },
-      '사이트': {
-        select: {
-          name: submission.site
-        }
-      },
-      '문제번호': {
-        rich_text: [
-          {
-            text: {
-              content: String(submission.problemId)
-            }
-          }
-        ]
-      },
-      '상태': {
-        select: {
-          name: submission.status
-        }
-      },
-      '제출일': {
-        date: {
-          start: submission.submittedAt.split('T')[0] || new Date().toISOString().split('T')[0]
-        }
-      },
-      '문제 링크': {
-        url: submission.problemUrl
-      }
+      };
+    }
+
+    // Helper: only match existing property by case-insensitive name and matching type
+    const findExisting = (candidates: string[], type?: string) => {
+      return Object.keys(dbSchema).find(k => {
+        const nameMatch = candidates.some(c => c.toLowerCase() === k.toLowerCase());
+        const typeMatch = !type || dbSchema[k].type === type;
+        return nameMatch && typeMatch;
+      });
     };
 
+    // 3. Date / 날짜 (Crucial for Calendar & Heatmap views!)
+    const dateProp = findExisting(['날짜', '제출일', '제출일자', 'date', 'Date', '일자'], 'date') ||
+                     Object.keys(dbSchema).find(k => dbSchema[k].type === 'date');
+    if (dateProp) {
+      const todayStr = submission.submittedAt.split('T')[0] || new Date().toISOString().split('T')[0];
+      properties[dateProp] = {
+        date: { start: todayStr }
+      };
+    }
+
+    // 4. Site / 사이트
+    const siteProp = findExisting(['사이트', '플랫폼', 'site', 'Platform']);
+    if (siteProp) {
+      if (dbSchema[siteProp].type === 'select') {
+        properties[siteProp] = { select: { name: submission.site } };
+      } else if (dbSchema[siteProp].type === 'rich_text') {
+        properties[siteProp] = { rich_text: [{ text: { content: submission.site } }] };
+      }
+    }
+
+    // 5. Problem Number / 문제번호
+    const numProp = findExisting(['문제번호', '번호', 'number', 'ProblemId']);
+    if (numProp) {
+      if (dbSchema[numProp].type === 'number') {
+        const n = parseInt(submission.problemId, 10);
+        if (!isNaN(n)) properties[numProp] = { number: n };
+      } else if (dbSchema[numProp].type === 'rich_text') {
+        properties[numProp] = { rich_text: [{ text: { content: String(submission.problemId) } }] };
+      }
+    }
+
+    // 6. Status / 상태
+    const statusProp = findExisting(['상태', '결과', 'status', 'Result'], 'select') ||
+                       findExisting(['상태', '결과', 'status', 'Result'], 'status');
+    if (statusProp) {
+      if (dbSchema[statusProp].type === 'status') {
+        properties[statusProp] = { status: { name: submission.status } };
+      } else if (dbSchema[statusProp].type === 'select') {
+        properties[statusProp] = { select: { name: submission.status } };
+      }
+    }
+
+    // 7. Problem URL / 링크
+    const urlProp = findExisting(['문제 링크', '문제링크', '링크', 'url', 'Link', 'URL'], 'url');
+    if (urlProp) {
+      properties[urlProp] = { url: submission.problemUrl };
+    }
+
+    // 8. Difficulty / 난이도
     if (submission.difficulty) {
-      properties['난이도'] = {
-        select: {
-          name: submission.difficulty
+      const diffProp = findExisting(['난이도', 'difficulty', 'Tier', '레벨']);
+      if (diffProp) {
+        if (dbSchema[diffProp].type === 'select') {
+          properties[diffProp] = { select: { name: submission.difficulty } };
+        } else if (dbSchema[diffProp].type === 'rich_text') {
+          properties[diffProp] = { rich_text: [{ text: { content: submission.difficulty } }] };
         }
-      };
+      }
     }
 
+    // 9. Language / 언어
     if (submission.language) {
-      properties['언어'] = {
-        select: {
-          name: submission.language
+      const langProp = findExisting(['언어', 'language', 'Language']);
+      if (langProp) {
+        if (dbSchema[langProp].type === 'select') {
+          properties[langProp] = { select: { name: submission.language } };
+        } else if (dbSchema[langProp].type === 'rich_text') {
+          properties[langProp] = { rich_text: [{ text: { content: submission.language } }] };
         }
-      };
+      }
     }
 
+    // 10. Tags / 알고리즘
     if (submission.tags && submission.tags.length > 0) {
-      properties['알고리즘'] = {
-        multi_select: submission.tags.map(t => ({ name: t.replace(/,/g, '') }))
-      };
+      const tagProp = findExisting(['알고리즘', '태그', 'tags', 'Tags', '유형', '분류'], 'multi_select');
+      if (tagProp) {
+        properties[tagProp] = {
+          multi_select: submission.tags.map(t => ({ name: t.replace(/,/g, '').trim() })).filter(t => t.name)
+        };
+      }
     }
 
-    // Children blocks (Code block if source code available)
+    // 11. Code Block in page children
     const children: any[] = [];
     if (submission.code) {
-      // Map language to Notion supported code block language
       let notionLang = 'plain text';
       const langLower = (submission.language || '').toLowerCase();
       if (langLower.includes('py')) notionLang = 'python';
@@ -132,7 +185,6 @@ export class NotionService {
       else if (langLower.includes('c')) notionLang = 'c';
       else if (langLower.includes('js') || langLower.includes('javascript')) notionLang = 'javascript';
 
-      // Notion blocks have max 2000 chars per text element, chunk if necessary
       const chunks = this.chunkString(submission.code, 2000);
       children.push({
         object: 'block',
@@ -147,8 +199,11 @@ export class NotionService {
       });
     }
 
+    // 12. Check if problem already exists in database (De-duplication)
+    const existing = await this.findExistingPage(databaseId, submission.site, submission.problemId);
+
     if (existing) {
-      // Update existing page
+      // If already exists, update properties only (prevent creating 2nd/3rd duplicates)
       return await this.request(`/pages/${existing.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -156,7 +211,7 @@ export class NotionService {
         })
       });
     } else {
-      // Create new page in database
+      // Create new page
       return await this.request('/pages', {
         method: 'POST',
         body: JSON.stringify({
@@ -173,28 +228,18 @@ export class NotionService {
       const response = await this.request(`/databases/${databaseId}/query`, {
         method: 'POST',
         body: JSON.stringify({
-          filter: {
-            and: [
-              {
-                property: '사이트',
-                select: {
-                  equals: site
-                }
-              },
-              {
-                property: '문제번호',
-                rich_text: {
-                  equals: String(problemId)
-                }
-              }
-            ]
-          },
-          page_size: 1
+          page_size: 50
         })
       });
-      return response.results && response.results.length > 0 ? response.results[0] : null;
+
+      const results = response.results || [];
+      return results.find((page: any) => {
+        const props = page.properties || {};
+        const titleProp = Object.values(props).find((p: any) => (p as any).type === 'title') as any;
+        const plainTitle = titleProp?.title?.map((t: any) => t.plain_text).join('') || '';
+        return plainTitle.includes(String(problemId));
+      }) || null;
     } catch {
-      // If query fails (e.g. database schema does not have those exact properties yet), fallback to new creation
       return null;
     }
   }

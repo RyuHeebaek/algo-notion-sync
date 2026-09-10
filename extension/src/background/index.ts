@@ -7,6 +7,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   lastSyncStatus: 'idle'
 };
 
+// In-memory debounce cache to prevent duplicate rapid syncs
+const recentSyncTimestamps = new Map<string, number>();
+
 async function getSettings(): Promise<UserSettings> {
   const result = await chrome.storage.sync.get('settings');
   return { ...DEFAULT_SETTINGS, ...(result.settings || {}) };
@@ -58,6 +61,16 @@ async function handleSync(submission: SubmissionMeta, isAuto: boolean): Promise<
     await updateSyncStatus('error', '저장할 Notion 데이터베이스가 선택되지 않았습니다.');
     return { success: false, error: 'No database selected' };
   }
+
+  // Prevent duplicate sync within 10 seconds for the same problem
+  const syncKey = `${submission.site}-${submission.problemId}`;
+  const now = Date.now();
+  const lastSyncTime = recentSyncTimestamps.get(syncKey);
+  if (lastSyncTime && now - lastSyncTime < 10000) {
+    console.log(`Duplicate sync ignored for ${syncKey}`);
+    return { success: true };
+  }
+  recentSyncTimestamps.set(syncKey, now);
 
   try {
     const notion = new NotionService(settings.notionToken);
