@@ -22,32 +22,65 @@ export class SWEAAdapter implements SiteAdapter {
   }
 
   public extractProblem(doc: Document, url: string): ProblemMeta | null {
-    const titleEl = doc.querySelector('.problem_title, .title_box h3, .tit_box .tit, .code_title');
-    const rawTitle = titleEl?.textContent?.trim();
+    // 1. Search across all possible SWEA title elements
+    const titleCandidates = [
+      doc.querySelector('.problem_title'),
+      doc.querySelector('.title_box h3'),
+      doc.querySelector('.tit_box .tit'),
+      doc.querySelector('.code_title'),
+      doc.querySelector('h3.tit'),
+      doc.querySelector('.box_type1 .tit'),
+      doc.querySelector('.sub_cont h3')
+    ];
 
+    let rawTitle = '';
+    for (const el of titleCandidates) {
+      if (el && el.textContent && el.textContent.trim().length > 0) {
+        rawTitle = el.textContent.trim();
+        break;
+      }
+    }
+
+    // 2. Fallback to document.title if not found in body
+    if (!rawTitle && doc.title) {
+      const pageTitle = doc.title.replace(/SW Expert Academy|SW Expert|SW/gi, '').trim();
+      if (pageTitle.length > 0) {
+        rawTitle = pageTitle;
+      }
+    }
+
+    // 3. Problem ID extraction
     const urlObj = new URL(url, 'https://swexpertacademy.com');
     const probIdFromUrl = urlObj.searchParams.get('contestProbId') || '';
 
     let problemId = probIdFromUrl;
-    let title = rawTitle || 'SWEA Problem';
+    let title = rawTitle || '문제';
 
     if (rawTitle) {
-      const match = rawTitle.match(/^(\d+)\.\s*(.*)$/);
+      // Examples: "6808. [S/W 문제해결] 규영이와..." or "[D3] 6808. 규영이와..."
+      const match = rawTitle.match(/^(\d+)\.\s*(.*)$/) || rawTitle.match(/\[.*?\]\s*(\d+)\.\s*(.*)$/);
       if (match) {
         problemId = match[1];
         title = match[2].trim();
+      } else {
+        const idMatch = rawTitle.match(/\b(\d{4,5})\b/);
+        if (idMatch) {
+          problemId = idMatch[1];
+        }
       }
     }
 
+    // 4. Difficulty level
     let difficulty: string | undefined;
     const badgeEl = doc.querySelector('.badge_d, .badge_difficulty, .difficulty, span[class*="badge"]');
     if (badgeEl?.textContent) {
       difficulty = badgeEl.textContent.trim();
     } else {
-      const diffMatch = doc.body.textContent?.match(/\b(D[1-8])\b/);
+      const diffMatch = (rawTitle + ' ' + (doc.body.textContent || '')).match(/\b(D[1-8])\b/);
       if (diffMatch) difficulty = diffMatch[1];
     }
 
+    // 5. Tags
     const tags: string[] = [];
     const tagElements = doc.querySelectorAll('.tag_list li, .keyword_box a, .tags span');
     tagElements.forEach(el => {
@@ -57,8 +90,8 @@ export class SWEAAdapter implements SiteAdapter {
 
     return {
       site: this.site,
-      problemId: problemId || 'SWEA',
-      title,
+      problemId: problemId || probIdFromUrl || 'SWEA',
+      title: title || '문제',
       difficulty,
       tags,
       problemUrl: url
@@ -102,16 +135,13 @@ export class SWEAAdapter implements SiteAdapter {
       language = (langEl as HTMLSelectElement).value || langEl.textContent?.trim();
     }
 
-    // Source Code: Thorough extraction across ACE editor, textarea, code blocks, frames
+    // Source Code extraction
     let code: string | undefined;
-
-    // 1. Textarea options
     const codeArea = doc.querySelector('textarea#userCode, textarea[name="code"], textarea#code, textarea#source, textarea.code') as HTMLTextAreaElement;
     if (codeArea && codeArea.value && codeArea.value.trim().length > 0) {
       code = codeArea.value;
     }
 
-    // 2. Ace Editor lines
     if (!code) {
       const aceLines = doc.querySelectorAll('.ace_line');
       if (aceLines && aceLines.length > 0) {
@@ -119,7 +149,6 @@ export class SWEAAdapter implements SiteAdapter {
       }
     }
 
-    // 3. Pre / Code tags
     if (!code) {
       const preEl = doc.querySelector('pre.code, pre#userCode, .ace_content, div.code_box pre');
       if (preEl && preEl.textContent && preEl.textContent.trim().length > 0) {

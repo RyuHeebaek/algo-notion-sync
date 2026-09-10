@@ -59,6 +59,27 @@ export class NotionService {
   }
 
   /**
+   * Formats a clean, readable Notion page title
+   * Avoids repeating "SWEA. SWEA..."
+   */
+  private formatCleanTitle(submission: SubmissionMeta): string {
+    const site = submission.site;
+    const id = submission.problemId;
+    let title = submission.title;
+
+    // Clean up if title already contains site or id
+    title = title.replace(new RegExp(`^${site}\\s*[:\.]?\\s*`, 'i'), '');
+    if (id && id !== 'SWEA' && id !== 'JUNGOL') {
+      title = title.replace(new RegExp(`^${id}\\s*[:\.]?\\s*`), '');
+    }
+
+    if (id && id !== 'SWEA' && id !== 'JUNGOL') {
+      return `[${site}] ${id}. ${title}`;
+    }
+    return `[${site}] ${title}`;
+  }
+
+  /**
    * Adds or updates a problem submission in the specified database
    */
   public async syncSubmission(databaseId: string, submission: SubmissionMeta): Promise<any> {
@@ -67,14 +88,14 @@ export class NotionService {
 
     const properties: Record<string, any> = {};
 
-    // 1. Title property
+    // 1. Clean Title property
     const titleKey = Object.keys(dbSchema).find(k => dbSchema[k].type === 'title');
     if (titleKey) {
       properties[titleKey] = {
         title: [
           {
             text: {
-              content: `${submission.site}. ${submission.problemId}. ${submission.title}`
+              content: this.formatCleanTitle(submission)
             }
           }
         ]
@@ -184,10 +205,8 @@ export class NotionService {
       }
     }
 
-    // 10. Build Children blocks (Heading, Callout with problem link, and Code block)
+    // 10. Build Children blocks (Bookmark & Code block)
     const children: any[] = [];
-
-    // Problem Link block
     children.push({
       object: 'block',
       type: 'bookmark',
@@ -196,7 +215,6 @@ export class NotionService {
       }
     });
 
-    // Code Block
     if (submission.code) {
       let notionLang = 'plain text';
       const langLower = (submission.language || '').toLowerCase();
@@ -232,7 +250,6 @@ export class NotionService {
     const existing = await this.findExistingPage(databaseId, submission.site, submission.problemId);
 
     if (existing) {
-      // 1. Update properties
       await this.request(`/pages/${existing.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -240,7 +257,6 @@ export class NotionService {
         })
       });
 
-      // 2. Append new code block if code is present
       if (children.length > 0) {
         try {
           await this.request(`/blocks/${existing.id}/children`, {
@@ -255,7 +271,6 @@ export class NotionService {
       }
       return existing;
     } else {
-      // Create new page with code block inside
       return await this.request('/pages', {
         method: 'POST',
         body: JSON.stringify({

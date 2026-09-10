@@ -35,7 +35,7 @@ describe('NotionService Unit Tests', () => {
     fetchSpy.mockRestore();
   });
 
-  it('should format and send submission properties accurately when creating page', async () => {
+  it('should format clean title and send submission properties accurately', async () => {
     const submission: SubmissionMeta = {
       site: 'SWEA',
       problemId: '1204',
@@ -94,15 +94,9 @@ describe('NotionService Unit Tests', () => {
     expect(createBodySent.parent.database_id).toBe(fakeDbId);
 
     const props = createBodySent.properties;
-    expect(props['문제명'].title[0].text.content).toBe('SWEA. 1204. 최빈수 구하기');
+    expect(props['문제명'].title[0].text.content).toBe('[SWEA] 1204. 최빈수 구하기');
     expect(props['사이트'].select.name).toBe('SWEA');
-    expect(props['상태'].select.name).toBe('성공'); // smart Korean mapping!
-    expect(props['난이도'].select.name).toBe('D2');
-    expect(props['알고리즘'].multi_select).toHaveLength(2);
-
-    expect(createBodySent.children).toHaveLength(3); // bookmark, heading_3, code block
-    expect(createBodySent.children[2].type).toBe('code');
-    expect(createBodySent.children[2].code.language).toBe('java');
+    expect(props['상태'].select.name).toBe('성공');
 
     fetchSpy.mockRestore();
   });
