@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { SWEAAdapter } from '../extension/src/adapters/swea';
 import { JungolAdapter } from '../extension/src/adapters/jungol';
+import { BOJAdapter } from '../extension/src/adapters/boj';
 
 describe('Site Adapters Extraction Tests', () => {
   const sweaHtml = fs.readFileSync(path.resolve(__dirname, 'fixtures/swea_problem.html'), 'utf-8');
@@ -65,5 +66,28 @@ describe('Site Adapters Extraction Tests', () => {
     expect(submission?.status).toBe('Accepted');
     expect(submission?.language).toBe('C++');
     expect(submission?.code).toContain('#include <iostream>');
+  });
+
+  it('BOJAdapter should not report a submission for a plain problem page', () => {
+    const html = '<html><body><div id="problem_title">동전 0</div></body></html>';
+    const dom = new JSDOM(html, { url: 'https://www.acmicpc.net/problem/11047' });
+    const adapter = new BOJAdapter();
+
+    expect(adapter.matches('https://www.acmicpc.net/problem/11047')).toBe(true);
+    expect(adapter.extractProblem(dom.window.document, 'https://www.acmicpc.net/problem/11047')?.problemId).toBe('11047');
+    // A problem page carries no judging result, so nothing may be auto-synced as Accepted.
+    expect(adapter.extractSubmission(dom.window.document, 'https://www.acmicpc.net/problem/11047')).toBeNull();
+  });
+
+  it('BOJAdapter should read the result from a status row', () => {
+    const html = `<html><body><div id="problem_title">동전 0</div>
+      <table id="status-table"><tbody><tr>
+        <td>1</td><td>11047</td><td>ryu</td><td>맞았습니다!!</td><td>Java 11</td><td>128 ms</td><td>2026-11-19 21:14:03</td>
+      </tr></tbody></table></body></html>`;
+    const dom = new JSDOM(html, { url: 'https://www.acmicpc.net/status?problem_id=11047' });
+    const submission = new BOJAdapter().extractSubmission(dom.window.document, 'https://www.acmicpc.net/status?problem_id=11047');
+
+    expect(submission?.status).toBe('Accepted');
+    expect(submission?.language).toBe('Java 11');
   });
 });

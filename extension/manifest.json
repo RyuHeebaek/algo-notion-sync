@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Algo Notion Sync (SWEA & JUNGOL)",
-  "version": "1.0.0",
-  "description": "SWEA 및 정올(JUNGOL)의 알고리즘 문제 풀이 결과를 사용자 브라우저 세션으로 안전하게 수집하여 Notion 데이터베이스에 자동 동기화합니다.",
+  "version": "1.0.1",
+  "description": "SWEA, 정올(JUNGOL), 백준의 알고리즘 문제 풀이 결과를 사용자 브라우저 세션으로 안전하게 수집하여 Notion 데이터베이스에 자동 동기화합니다.",
   "icons": {
     "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
@@ -12,6 +13,7 @@
     "default_popup": "src/popup/popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
@@ -47,7 +49,6 @@
     "*://*.jungol.co.kr/*",
     "*://acmicpc.net/*",
     "*://*.acmicpc.net/*",
-    "https://api.notion.com/*",
-    "http://localhost:3000/*"
+    "https://api.notion.com/*"
   ]
 }

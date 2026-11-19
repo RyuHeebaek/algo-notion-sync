@@ -34,10 +34,14 @@ export default defineConfig({
         const manifestDest = resolve(__dirname, 'dist/manifest.json');
         const manifest = JSON.parse(fs.readFileSync(manifestSrc, 'utf-8'));
         
-        // Adjust paths for built bundle in dist/
-        manifest.background.service_worker = 'src/background/index.js';
-        manifest.content_scripts[0].js = ['src/content/index.js'];
-        manifest.action.default_popup = 'extension/src/popup/popup.html';
+        // Adjust paths for built bundle in dist/: .ts entries become .js,
+        // and the popup HTML keeps the source path it is emitted at by Vite.
+        manifest.background.service_worker = manifest.background.service_worker.replace(/\.ts$/, '.js');
+        manifest.content_scripts = manifest.content_scripts.map((script: { js: string[] }) => ({
+          ...script,
+          js: script.js.map((file: string) => file.replace(/\.ts$/, '.js'))
+        }));
+        manifest.action.default_popup = `extension/${manifest.action.default_popup}`;
         
         fs.writeFileSync(manifestDest, JSON.stringify(manifest, null, 2));
       }

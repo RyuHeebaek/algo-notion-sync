@@ -1,7 +1,7 @@
 {
   "name": "algo-notion-sync",
-  "version": "1.0.0",
-  "description": "Chrome Manifest V3 Extension for syncing SWEA and JUNGOL submissions to Notion",
+  "version": "1.0.1",
+  "description": "Chrome Manifest V3 Extension for syncing SWEA, JUNGOL and Baekjoon submissions to Notion",
   "private": true,
   "scripts": {
     "build": "npm run build:extension && npm run build:server",

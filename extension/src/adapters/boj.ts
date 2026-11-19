@@ -1,8 +1,27 @@
 import { ProblemMeta, SiteLoginStatus, SubmissionMeta } from '../types';
 import { SiteAdapter } from '../core/adapter';
 
+type SubmissionStatus = SubmissionMeta['status'];
+
+/**
+ * Baekjoon adapter.
+ *
+ * A Baekjoon problem page (acmicpc.net/problem/N) never shows a judging result, so
+ * extractSubmission() returns null there: otherwise every problem page a user opens
+ * would be written to Notion as if it had been accepted. A result is only reported
+ * when the page really carries one (submission / status pages).
+ */
 export class BOJAdapter implements SiteAdapter {
   public site = 'BOJ' as const;
+
+  private static readonly STATUS_PATTERNS: Array<[RegExp, SubmissionStatus]> = [
+    [/맞았습니다|Accepted/i, 'Accepted'],
+    [/틀렸습니다|Wrong Answer/i, 'Wrong Answer'],
+    [/시간 초과|Time Limit Exceeded/i, 'Time Limit Exceeded'],
+    [/메모리 초과|Memory Limit Exceeded/i, 'Memory Limit Exceeded'],
+    [/런타임 에러|Runtime Error/i, 'Runtime Error'],
+    [/컴파일 에러|Compilation Error/i, 'Compilation Error'],
+  ];
 
   public matches(url: string): boolean {
     return url.includes('acmicpc.net');
@@ -43,10 +62,28 @@ export class BOJAdapter implements SiteAdapter {
     const problem = this.extractProblem(doc, url);
     if (!problem) return null;
 
+    const statusTable = doc.querySelector('#status-table');
+    const isSubmissionPage = /\/(submit|status|showsubmit|source)\//i.test(url) || !!statusTable;
+    if (!isSubmissionPage) return null;
+
+    const row = statusTable?.querySelector('tbody tr');
+    const cells = row
+      ? Array.from(row.querySelectorAll('td')).map(td => td.textContent?.trim() || '')
+      : [];
+    const resultText = cells.length >= 4 ? cells[3] : '';
+
+    const matched = BOJAdapter.STATUS_PATTERNS.find(([pattern]) => pattern.test(resultText));
+    if (!matched) return null;
+
+    const code = doc.querySelector('#source, .source-code, pre#code')?.textContent?.trim();
+    const submittedAt = cells[6] || new Date().toISOString();
+
     return {
       ...problem,
-      status: 'Accepted',
-      submittedAt: new Date().toISOString()
+      status: matched[1],
+      language: cells[4] || undefined,
+      submittedAt,
+      code: code && code.length > 0 ? code : undefined,
     };
   }
 }
