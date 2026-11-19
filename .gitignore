@@ -4,3 +4,7 @@ dist-server/
 .env
 *.log
 .DS_Store
+
+# Python bytecode from store-assets helper scripts
+__pycache__/
+*.pyc
