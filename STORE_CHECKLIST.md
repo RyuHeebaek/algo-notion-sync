@@ -44,8 +44,12 @@ Chrome Web Store 개발자 대시보드에 심사를 요청하기 전 확인하�
   - `storage`/`cookies`/`notifications`/`activeTab` 사유 코드와 일치
   - 저장 항목(`chrome.storage.sync`: 토큰·DB ID·자동 저장·최근 상태) 및 삭제 방법 명시
 - [x] 공개 URL용 페이지 `docs/privacy.html` 준비 (한국어 본문 + English Summary)
-- [ ] **GitHub Pages 활성화** → `https://ryuheebaek.github.io/algo-notion-sync/privacy.html`
-  (저장소 Settings → Pages → Source: `Deploy from a branch` → `master` / `/docs`)
+- [x] Notion 붙여넣기용 평문 `docs/privacy-notion.md` 준비
+- [ ] **공개 URL 만들기 — 둘 중 하나**
+  - A) GitHub Pages: 저장소 Settings → Pages → Source `Deploy from a branch` → `master` / `/docs`
+    → `https://ryuheebaek.github.io/algo-notion-sync/privacy.html`
+    (2026-11-19 기준 GitHub 앱 권한으로는 Pages API가 403이라 자동 활성화 불가 → 저장소 화면에서 직접 켜기)
+  - B) Notion: 새 페이지에 `docs/privacy-notion.md` 붙여넣고 `공유 → 웹에 게시` → 그 주소 사용
 - [ ] 대시보드 **개인정보 처리방침 URL** 칸에 위 주소 입력
 
 ---

@@ -15,13 +15,24 @@
 | 기본 언어 | 한국어 (ko) |
 | 지원 언어 | 한국어, English |
 | 공개 범위 | 공개 (Public) |
-| 개인정보 처리방침 URL | `https://ryuheebaek.github.io/algo-notion-sync/privacy.html` |
+| 개인정보 처리방침 URL | `https://ryuheebaek.github.io/algo-notion-sync/privacy.html` (Pages 활성화 후) |
 | 홈페이지 URL (선택) | `https://github.com/RyuHeebaek/algo-notion-sync` |
 | 지원 URL (선택) | `https://github.com/RyuHeebaek/algo-notion-sync/issues` |
 
-> 개인정보 처리방침 URL은 GitHub Pages(`master` 브랜치 `/docs`)를 활성화한 뒤 위 주소로 열립니다.
-> Pages가 아직 활성화되지 않았다면 저장소 `docs/privacy.html`을 열어 내용을 Notion 공개 페이지 등에
-> 게시하고 그 주소를 넣어도 됩니다.
+> **개인정보 처리방침 URL — 현재 상태 (2026-11-19)**
+>
+> 저장소는 공개 상태이고 `docs/privacy.html`(한국어 본문 + English Summary)이 `master`에 들어가 있습니다.
+> 다만 GitHub Pages는 아직 **켜져 있지 않습니다.** GitHub 앱 권한으로는 Pages 설정 API가 403
+> (`Resource not accessible by integration`)으로 막혀 있어, 아래 둘 중 하나가 필요합니다.
+>
+> **방법 A — GitHub Pages (권장, 클릭 1회)**
+> 저장소 `Settings → Pages → Build and deployment`에서 Source를 `Deploy from a branch`,
+> Branch를 `master`, 폴더를 `/docs`로 저장하면 1~2분 뒤
+> `https://ryuheebaek.github.io/algo-notion-sync/privacy.html` 이 열립니다.
+>
+> **방법 B — Notion 공개 페이지 (바로 사용 가능)**
+> Notion에서 새 페이지 → `docs/privacy-notion.md` 내용 붙여넣기(또는 Import → Markdown)
+> → `공유 → 웹에 게시` → 그 주소를 대시보드에 입력. raw/blob 링크는 심사에서 인정되지 않습니다.
 
 ---
 
