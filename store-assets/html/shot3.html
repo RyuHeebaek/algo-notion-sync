@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Algo Notion Sync — notion database</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .left{position:absolute;left:84px;top:150px;width:330px}
+  .left h1{margin-top:22px;font-size:42px}
+  .left .lead{margin-top:18px;font-size:16px}
+  .left .feats{margin-top:26px;gap:11px}
+  .left .feats li{font-size:14px}
+
+  .win.notion{left:452px;top:38px;width:790px;height:724px;display:flex;border-radius:14px}
+  .side{width:140px;flex:none;background:#F7F7F5;border-right:1px solid #EDECE9;padding:12px 8px}
+  .ws{display:flex;align-items:center;gap:7px;padding:4px 6px 12px}
+  .ws .av{width:20px;height:20px;border-radius:5px;background:linear-gradient(155deg,#2B6CFF,#7C3AED);
+    color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center}
+  .ws span{font-size:10.5px;font-weight:700;color:#37352F;line-height:1.3;letter-spacing:-.01em}
+  .navi{display:flex;flex-direction:column;gap:1px}
+  .navi a{display:flex;align-items:center;gap:6px;height:24px;padding:0 6px;border-radius:5px;
+    font-size:11.5px;color:#5F5E5B;text-decoration:none}
+  .navi a.on{background:#EFEEEB;color:#37352F;font-weight:600}
+  .navi .sect{margin:12px 6px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9B9A97}
+  .main{flex:1;min-width:0;background:#fff;display:flex;flex-direction:column}
+  .topbar{height:38px;display:flex;align-items:center;gap:8px;padding:0 18px;border-bottom:1px solid #F1F0EE;
+    color:#9B9A97;font-size:11.5px}
+  .topbar .crumb{color:#5F5E5B}
+  .topbar .right{margin-left:auto;display:flex;gap:6px;align-items:center}
+
+  .title{display:flex;align-items:center;gap:10px;padding:16px 20px 6px}
+  .title .ic{width:24px;height:24px;border-radius:6px;background:#F1F0EE;display:grid;place-items:center;font-size:13px}
+  .title h3{margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em;color:#1F1E1C}
+
+  .viewbar{display:flex;align-items:center;gap:4px;padding:6px 20px 10px;border-bottom:1px solid #F1F0EE}
+  .viewbar .v{height:24px;display:flex;align-items:center;gap:5px;padding:0 8px;border-radius:5px;
+    font-size:11.5px;color:#5F5E5B;font-weight:600}
+  .viewbar .v.on{background:#F1F0EE}
+  .viewbar .sp{margin-left:auto;color:#9B9A97;font-size:11px}
+
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  thead th{
+    height:30px;text-align:left;font-size:11px;font-weight:600;color:#787774;
+    background:#FBFAF9;border-bottom:1px solid #EDECE9;padding:0 10px;white-space:nowrap;
+  }
+  thead th:first-child{padding-left:20px}
+  tbody td{height:44px;border-bottom:1px solid #F1F0EE;padding:0 10px;font-size:11.8px;color:#37352F;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  tbody td:first-child{padding-left:20px}
+  tbody tr:nth-child(even){background:#FCFBFA}
+  .ttl{display:flex;align-items:center;gap:6px;min-width:0}
+  .ttl .dot{width:15px;height:15px;border-radius:4px;flex:none;display:grid;place-items:center;
+    font-size:9px;font-weight:800;color:#fff}
+  .dot.swea{background:#2B6CFF}.dot.jungol{background:#0C8A6E}
+  .ttl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .tag{display:inline-flex;height:19px;align-items:center;padding:0 7px;border-radius:4px;
+    background:#EDEEF0;color:#4B4A47;font-size:10.5px;font-weight:600;margin-right:3px}
+  .dlv{display:inline-flex;height:19px;align-items:center;padding:0 7px;border-radius:4px;
+    background:#E4EDFB;color:#28497F;font-size:10.5px;font-weight:700}
+  .ok{display:inline-flex;height:19px;align-items:center;gap:3px;padding:0 6px;border-radius:4px;
+    background:#DBEDDB;color:#1C3829;font-size:10.5px;font-weight:700}
+  .lang{color:#5F5E5B;font-size:11px}
+  .date{color:#787774;font-size:11px}
+  .newrow{margin:8px 20px;display:flex;align-items:center;gap:6px;color:#9B9A97;font-size:11.5px}
+
+  .peek{margin:2px 20px 0;border:1px solid #EDECE9;border-radius:9px;background:#fff;padding:11px 13px 12px;
+    box-shadow:0 6px 16px rgba(16,32,70,.05)}
+  .peek .ph{display:flex;align-items:center;gap:7px;min-width:0}
+  .peek .picon{font-size:12px}
+  .peek .pt{font-size:12.5px;font-weight:800;color:#1F1E1C;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;letter-spacing:-.01em}
+  .peek .pmeta{margin-left:auto;font-size:10.5px;color:#9B9A97;white-space:nowrap;flex:none}
+  .peek .bookmark{display:flex;align-items:center;gap:6px;margin-top:7px;padding:5px 8px;border-radius:5px;
+    background:#F7F6F4;color:#6A6965;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .peek .codeh{font-size:10.5px;color:#9B9A97;font-weight:700;margin:10px 0 5px}
+  pre.peekcode{margin:0;padding:9px 11px;background:#F7F6F4;border-radius:6px;font-size:10.4px;
+    line-height:1.62;color:#37352F;font-family:'JBMono',monospace;white-space:pre;overflow:hidden}
+  pre.peekcode .k{color:#9A3412;font-weight:600}.peekcode .t{color:#0F766E}
+  .peekcode .n{color:#7C3AED}.peekcode .s{color:#B45309}
+  .status{margin-top:auto;padding:10px 20px;border-top:1px solid #F1F0EE;display:flex;align-items:center;
+    gap:8px;font-size:11px;color:#5F5E5B}
+  .status .okdot{width:6px;height:6px;border-radius:50%;background:#12A150}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="left">
+    <span class="eyebrow">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3557C9" stroke-width="2.2" stroke-linejoin="round"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>
+      Notion Database
+    </span>
+    <h1>풀이가 쌓이는<br><em>나만의 문제 노트</em></h1>
+    <p class="lead">사이트 · 난이도 · 알고리즘 · 결과로 정리되고,<br>페이지 안에는 제출 코드가 그대로 남습니다.</p>
+    <ul class="feats">
+      <li>
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#2B6CFF" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h10"/></svg></span>
+        <span><strong>내 컬럼 이름에 맞춰</strong> 자동 매핑</span>
+      </li>
+      <li>
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#12A150" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span><strong>다시 제출하면</strong> 기존 페이지 갱신</span>
+      </li>
+      <li>
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 8-4 4 4 4"/><path d="m16 8 4 4-4 4"/></svg></span>
+        <span><strong>코드 블록과 문제 링크</strong>까지 함께</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="win notion">
+    <div class="side">
+      <div class="ws"><span class="av">R</span><span>Ryu 워크스페이스</span></div>
+      <div class="navi">
+        <a href="#" class="on">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#37352F" stroke-width="2" stroke-linejoin="round"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>
+          SWEA 문제 풀이
+        </a>
+        <a href="#">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8C8B87" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/></svg>
+          알고리즘 노트
+        </a>
+        <a href="#">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8C8B87" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+          2026 하반기 목표
+        </a>
+        <div class="sect">즐겨찾기</div>
+        <a href="#">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8C8B87" stroke-width="2"><path d="M12 3l2.6 5.6 6.1.8-4.4 4.3 1.1 6L12 16.9 6.6 19.7l1.1-6L3.3 9.4l6.1-.8L12 3z"/></svg>
+          자격증 · SQLD
+        </a>
+        <div class="sect">비공개</div>
+        <a href="#">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8C8B87" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
+          일일 회고
+        </a>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="topbar">
+        <span class="crumb">Ryu의 워크스페이스</span><span>/</span><span class="crumb">알고리즘</span><span>/</span>
+        <span style="color:#37352F;font-weight:600">SWEA 문제 풀이</span>
+        <span class="right">
+          <span style="font-size:11px;color:#9B9A97">공유</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9B9A97" stroke-width="2"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+        </span>
+      </div>
+
+      <div class="title">
+        <span class="ic">🧩</span>
+        <h3>SWEA 문제 풀이</h3>
+      </div>
+
+      <div class="viewbar">
+        <span class="v on">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5F5E5B" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>
+          표
+        </span>
+        <span class="v">보드</span>
+        <span class="v">캘린더</span>
+        <span class="sp">6개 기록 · 최근 수정 3분 전</span>
+      </div>
+
+      <table>
+        <colgroup>
+          <col style="width:214px"><col style="width:120px"><col style="width:60px">
+          <col style="width:76px"><col style="width:62px"><col style="width:82px">
+        </colgroup>
+        <thead>
+          <tr><th>문제</th><th>알고리즘</th><th>난이도</th><th>결과</th><th>언어</th><th>제출일</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="ttl"><span class="dot swea">S</span><span>1225. [S/W 문제해결 기본] 1일차 - 최빈수 구하기</span></span></td>
+            <td><span class="tag">구현</span><span class="tag">빈도수</span></td>
+            <td><span class="dlv">D2</span></td>
+            <td><span class="ok">✓ 성공</span></td>
+            <td class="lang">Java</td><td class="date">2026-11-19</td>
+          </tr>
+          <tr>
+            <td><span class="ttl"><span class="dot swea">S</span><span>1219. [S/W 문제해결 기본] 4일차 - 길찾기</span></span></td>
+            <td><span class="tag">DFS</span><span class="tag">그래프</span></td>
+            <td><span class="dlv">D4</span></td>
+            <td><span class="ok">✓ 성공</span></td>
+            <td class="lang">Java</td><td class="date">2026-11-19</td>
+          </tr>
+          <tr>
+            <td><span class="ttl"><span class="dot jungol">J</span><span>1828. 냉장고</span></span></td>
+            <td><span class="tag">그리디</span></td>
+            <td><span class="dlv">중급</span></td>
+            <td><span class="ok">✓ 성공</span></td>
+            <td class="lang">C++</td><td class="date">2026-11-18</td>
+          </tr>
+          <tr>
+            <td><span class="ttl"><span class="dot swea">S</span><span>1767. 프로세서 연결하기</span></span></td>
+            <td><span class="tag">백트래킹</span></td>
+            <td><span class="dlv">D4</span></td>
+            <td><span class="ok">✓ 성공</span></td>
+            <td class="lang">Java</td><td class="date">2026-11-18</td>
+          </tr>
+          <tr>
+            <td><span class="ttl"><span class="dot swea">S</span><span>6808. 규영이와 인영이의 카드게임</span></span></td>
+            <td><span class="tag">순열</span></td>
+            <td><span class="dlv">D3</span></td>
+            <td><span class="ok">✓ 성공</span></td>
+            <td class="lang">Java</td><td class="date">2026-11-17</td>
+          </tr>
+          <tr>
+            <td><span class="ttl"><span class="dot jungol">J</span><span>1520. 제곱근</span></span></td>
+            <td><span class="tag">구현</span></td>
+            <td><span class="dlv">초급</span></td>
+            <td><span class="ok">✓ 성공</span></td>
+            <td class="lang">Python</td><td class="date">2026-11-17</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="newrow">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9B9A97" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        새 페이지
+      </div>
+
+
+      <div class="peek">
+        <div class="ph">
+          <span class="picon">📄</span>
+          <span class="pt">1225. [S/W 문제해결 기본] 1일차 - 최빈수 구하기</span>
+          <span class="pmeta">SWEA · D2 · Java · 2026-11-19</span>
+        </div>
+        <div class="bookmark">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7A879B" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+          swexpertacademy.com/main/code/problem/problemDetail.do?contestProbId=1225
+        </div>
+        <div class="codeh">💻 제출 코드</div>
+        <pre class="peekcode"><span class="k">public class</span> <span class="t">Solution</span> {
+    <span class="k">public static void</span> main(<span class="t">String</span>[] args) {
+        <span class="k">int</span>[] cnt = <span class="k">new int</span>[<span class="n">101</span>];
+        <span class="k">for</span> (<span class="k">int</span> i = <span class="n">0</span>; i &lt; <span class="n">1000</span>; i++) cnt[sc.nextInt()]++;
+        System.out.println(<span class="s">"#"</span> + tc + <span class="s">" "</span> + mode);
+    }
+}</pre>
+      </div>
+
+      <div class="status">
+        <span class="okdot"></span>
+        마지막 동기화 3분 전 · SWEA #1225 → 이 표의 페이지로 저장됨
+        <span style="margin-left:auto;color:#9B9A97">자동 동기화 켜짐</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
